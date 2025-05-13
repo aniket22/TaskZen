@@ -1,0 +1,130 @@
+// TaskZenApp.swift
+import SwiftUI
+
+@main
+struct TaskZenApp: App {
+    let persistenceController = PersistenceController.shared
+
+    var body: some Scene {
+        WindowGroup {
+            ContentView()
+                .environment(\.managedObjectContext, persistenceController.container.viewContext)
+        }
+    }
+}
+
+// ContentView.swift
+import SwiftUI
+import CoreData
+
+struct ContentView: View {
+    @Environment(\.managedObjectContext) private var viewContext
+    @FetchRequest(
+        sortDescriptors: [NSSortDescriptor(keyPath: \Task.timestamp, ascending: true)],
+        animation: .default)
+    private var tasks: FetchedResults<Task>
+
+    @State private var newTaskTitle = ""
+
+    var body: some View {
+        NavigationView {
+            VStack {
+                HStack {
+                    TextField("New Task", text: $newTaskTitle)
+                        .textFieldStyle(RoundedBorderTextFieldStyle())
+                    Button(action: addTask) {
+                        Image(systemName: "plus")
+                    }
+                    .disabled(newTaskTitle.isEmpty)
+                }
+                .padding()
+
+                List {
+                    ForEach(tasks) { task in
+                        HStack {
+                            Image(systemName: task.isCompleted ? "checkmark.circle.fill" : "circle")
+                                .onTapGesture {
+                                    toggleTask(task)
+                                }
+                            Text(task.title ?? "")
+                                .strikethrough(task.isCompleted)
+                        }
+                    }
+                    .onDelete(perform: deleteTasks)
+                }
+            }
+            .navigationTitle("TaskZen")
+        }
+    }
+
+    private func addTask() {
+        withAnimation {
+            let newTask = Task(context: viewContext)
+            newTask.timestamp = Date()
+            newTask.title = newTaskTitle
+            newTask.isCompleted = false
+
+            do {
+                try viewContext.save()
+                newTaskTitle = ""
+            } catch {
+                print("Error saving task: \(error.localizedDescription)")
+            }
+        }
+    }
+
+    private func toggleTask(_ task: Task) {
+        task.isCompleted.toggle()
+        do {
+            try viewContext.save()
+        } catch {
+            print("Error updating task: \(error.localizedDescription)")
+        }
+    }
+
+    private func deleteTasks(offsets: IndexSet) {
+        withAnimation {
+            offsets.map { tasks[$0] }.forEach(viewContext.delete)
+            do {
+                try viewContext.save()
+            } catch {
+                print("Error deleting task: \(error.localizedDescription)")
+            }
+        }
+    }
+}
+
+// Persistence.swift
+import CoreData
+
+struct PersistenceController {
+    static let shared = PersistenceController()
+
+    let container: NSPersistentContainer
+
+    init(inMemory: Bool = false) {
+        container = NSPersistentContainer(name: "TaskModel")
+        if inMemory {
+            container.persistentStoreDescriptions.first?.url = URL(fileURLWithPath: "/dev/null")
+        }
+        container.loadPersistentStores { _, error in
+            if let error = error as NSError? {
+                fatalError("Unresolved error \(error), \(error.userInfo)")
+            }
+        }
+    }
+}
+
+// Task+CoreData.swift
+import Foundation
+import CoreData
+
+@objc(Task)
+public class Task: NSManagedObject {
+}
+
+extension Task: Identifiable {
+    @NSManaged public var timestamp: Date?
+    @NSManaged public var title: String?
+    @NSManaged public var isCompleted: Bool
+}
