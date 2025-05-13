@@ -17,7 +17,7 @@ TaskZen is a minimalist to-do list app built with SwiftUI and Core Data. It allo
 - MVVM architecture (lightweight)
 - Xcode & iOS SDK
 ## 📸 Screenshots
-
+output image
 > (https://github.com/aniket22/TaskZen/blob/main/output%20image)
 ## 💻 Setup
 
